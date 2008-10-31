@@ -5,6 +5,18 @@ import com.rabbitmq.client.*;
 
 import java.io.IOException;
 
+
+// playing with this http://www.rabbitmq.com/api-guide.html
+// had to do a few things on the server
+
+
+//  sudo rabbitmqctl add_vhost test
+//  sudo rabbitmqctl add_user davie davie
+//  sudo rabbitmqctl map_user_vhost davie test
+//     sudo rabbitmqctl add_realm test /data/testrealm
+//    sudo rabbitmqctl set_permissions davie test /data/testrealm active read write passive
+
+
 public class RabbitExample {
     private static final String EXCHANGE_NAME = "exchangeName";
     private static final String QUEUE_NAME = "queueName";
@@ -12,34 +24,23 @@ public class RabbitExample {
 
     @Test
     public void connectToRabbit() throws IOException {
-        // playing with this http://www.rabbitmq.com/api-guide.html
-        // had to do a few things on the server
-
-
-        //  sudo rabbitmqctl add_vhost test
-        //  sudo rabbitmqctl add_user davie davie
-        //  sudo rabbitmqctl map_user_vhost davie test
-        //     sudo rabbitmqctl add_realm test /data/testrealm
-        //    sudo rabbitmqctl set_permissions davie test /data/testrealm active read write passive
-
         Connection connection = connect();
-
         Channel channel = connection.createChannel();
-        int ticket = channel.accessRequest("/data/testrealm");
 
-//        channel.exchangeDeclare(ticket, EXCHANGE_NAME, "direct");
-//        channel.queueDeclare(ticket, QUEUE_NAME);
-//        channel.queueBind(ticket, QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY);
+        for(int i = 0 ; i < 100; i++)  {
+            sendMessage(channel, "Hello, world!".getBytes());
+        }
 
-        byte[] messageBodyBytes = "Hello, world!".getBytes();
-        channel.basicPublish(ticket, EXCHANGE_NAME, ROUTING_KEY, null, messageBodyBytes);
-
-
-        checkMessageSent(channel, ticket, QUEUE_NAME, "Hello, world!");
+        checkMessageSent(channel, QUEUE_NAME, "Hello, world!");
 
         channel.close(AMQP.REPLY_SUCCESS, "Goodbye");
         connection.close(AMQP.REPLY_SUCCESS);
 
+    }
+
+    private void sendMessage(Channel channel, byte[] message) throws IOException {
+        byte[] messageBodyBytes = message;
+        channel.basicPublish(channel.accessRequest("/data/testrealm"), EXCHANGE_NAME, ROUTING_KEY, null, messageBodyBytes);
     }
 
     private Connection connect() throws IOException {
@@ -59,14 +60,15 @@ public class RabbitExample {
     public void checkMessageWasSent() throws IOException {
         Connection connection = connect();
         Channel channel = connection.createChannel();
-        int ticket = channel.accessRequest("/data/testrealm");
+        channel.accessRequest("/data/testrealm");
 
 
-        checkMessageSent(channel, ticket, QUEUE_NAME, "test");
+        checkMessageSent(channel, QUEUE_NAME, "test");
     }
 
-    private void checkMessageSent(Channel channel, int ticket, String queueName, String content) throws IOException {
+    private void checkMessageSent(Channel channel, String queueName, String content) throws IOException {
         boolean noAck = false;
+        int ticket = channel.accessRequest("/data/testrealm");
         GetResponse response = channel.basicGet(ticket, queueName, noAck);
         
         if (response == null) {
@@ -76,6 +78,8 @@ public class RabbitExample {
             AMQP.BasicProperties props = response.getProps();
             long deliveryTag = response.getEnvelope().getDeliveryTag();
             assertEquals(content, new String(response.getBody()));
+            channel.basicAck(deliveryTag, false); // acknowledge receipt of the message
+
         }
     }
 
