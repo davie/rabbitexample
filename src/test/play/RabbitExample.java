@@ -11,12 +11,14 @@ import java.io.IOException;
 // playing with this http://www.rabbitmq.com/api-guide.html
 // had to do a few things on the server
 
+//
 
 //  sudo rabbitmqctl add_vhost test
 //  sudo rabbitmqctl add_user davie davie
 //  sudo rabbitmqctl map_user_vhost davie test
 //  sudo rabbitmqctl add_realm test /data/testrealm
 //  sudo rabbitmqctl set_permissions davie test /data/testrealm active read write passive
+
 
 
 public class RabbitExample {
@@ -52,7 +54,6 @@ public class RabbitExample {
         parameters.setVirtualHost("test");
         parameters.setRequestedHeartbeat(0);
 
-
         ConnectionFactory connectionFactory = new ConnectionFactory(parameters);
         Connection connection = connectionFactory.newConnection("localhost", 5672);
         return connection;
@@ -60,12 +61,22 @@ public class RabbitExample {
 
     @Test
     public void checkMessageWasSent() throws IOException {
+        Channel channel = getChannelFor("myQueue");
+
+        sendMessage(channel, "test".getBytes());
+
+        checkMessageSent(channel, "myQueue", "test");
+    }
+
+    private Channel getChannelFor(String queueName) throws IOException {
         Connection connection = connect();
         Channel channel = connection.createChannel();
-        channel.accessRequest("/data/testrealm");
 
-
-        checkMessageSent(channel, QUEUE_NAME, "test");
+        int ticket = channel.accessRequest("/data/testrealm");
+        channel.exchangeDeclare(ticket, EXCHANGE_NAME, "direct");
+        channel.queueDeclare(ticket, queueName);
+        channel.queueBind(ticket, queueName, EXCHANGE_NAME, ROUTING_KEY);
+        return channel;
     }
 
     private void checkMessageSent(Channel channel, String queueName, String content) throws IOException {
@@ -77,10 +88,9 @@ public class RabbitExample {
             // No message retrieved.
             fail("should have had a message");
         } else {
-            AMQP.BasicProperties props = response.getProps();
             long deliveryTag = response.getEnvelope().getDeliveryTag();
-            assertEquals(content, new String(response.getBody()));
             channel.basicAck(deliveryTag, false); // acknowledge receipt of the message
+            assertEquals(content, new String(response.getBody()));
 
         }
     }
