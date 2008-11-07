@@ -1,3 +1,5 @@
+package play;
+
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -13,8 +15,8 @@ import java.io.IOException;
 //  sudo rabbitmqctl add_vhost test
 //  sudo rabbitmqctl add_user davie davie
 //  sudo rabbitmqctl map_user_vhost davie test
-//     sudo rabbitmqctl add_realm test /data/testrealm
-//    sudo rabbitmqctl set_permissions davie test /data/testrealm active read write passive
+//  sudo rabbitmqctl add_realm test /data/testrealm
+//  sudo rabbitmqctl set_permissions davie test /data/testrealm active read write passive
 
 
 public class RabbitExample {
